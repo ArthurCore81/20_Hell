@@ -1,3 +1,4 @@
+
 using System;
 using VinteUm.Classes;
 
@@ -6,28 +7,57 @@ public class Jogar
     private Jogador jogador;
     private Dealer dealer;
     private Carta carta;
+
+    // true = vitória; false = derrota; null = partida sem resultado.
+    public bool? Vitoria { get; private set; }
+
     public void Iniciar(string nome)
     {
+        Vitoria = null;
+
         Carta.CriarBaralho();
+
         dealer = new Dealer();
         dealer.MaoInicial();
+
         jogador = new Jogador(nome);
         jogador.MaoInicial();
         jogador.MostrarMao();
-    }
 
-    public void Comprar()
-    {
-        carta = Carta.ComprarCarta();
-        jogador.ReceberCarta(carta);
-        jogador.MostrarMao();
-        jogador.Kabum();
-        if (jogador.Pontuacao == 21)
+        // Trata resultados já definidos na mão inicial.
+        if (jogador.Pontuacao > 21)
+        {
+            jogador.Kabum();
+            Vitoria = false;
+        }
+        else if (jogador.Pontuacao == 21)
         {
             Console.WriteLine("Você fez 21, mas ainda não ganhou!");
             Parar();
         }
     }
+
+    public void Comprar()
+    {
+        if (Vitoria.HasValue)
+            return;
+
+        carta = Carta.ComprarCarta();
+        jogador.ReceberCarta(carta);
+        jogador.MostrarMao();
+        jogador.Kabum();
+
+        if (jogador.Pontuacao > 21)
+        {
+            Vitoria = false;
+        }
+        else if (jogador.Pontuacao == 21)
+        {
+            Console.WriteLine("Você fez 21, mas ainda não ganhou!");
+            Parar();
+        }
+    }
+
     public void MostrarMaoD()
     {
         dealer.MostrarMaoD();
@@ -40,56 +70,118 @@ public class Jogar
 
     public void Parar()
     {
+        if (Vitoria.HasValue)
+            return;
+
         Console.WriteLine("É a vez do Dealer agora.");
         dealer.VezDoDealer();
-        if (dealer.Pontuacao >= 17 && dealer.Pontuacao <= 21 && dealer.Pontuacao > jogador.Pontuacao)
+
+        // O dealer estourou: vitória do jogador.
+        if (dealer.Pontuacao > 21)
         {
-            Console.WriteLine($"Dealer venceu obiviamente, com {dealer.Pontuacao} pontos. Você perdeu, mas continue jogando até perder tudo!");
+            Vitoria = true;
         }
-        else if (dealer.Pontuacao >= 17 && dealer.Pontuacao <= 21 && dealer.Pontuacao < jogador.Pontuacao)
+        // O jogador estourou: derrota.
+        else if (jogador.Pontuacao > 21)
         {
-            Console.WriteLine($"Você venceu? Isso não está certo você tinha {jogador.Pontuacao} pontos e o Dealer tinha {dealer.Pontuacao} pontos ... Mas que incopentente, jogue de novo, por favor :)");
+            Vitoria = false;
         }
-        else if (dealer.Pontuacao == jogador.Pontuacao)
+        // Dealer tem mais pontos.
+        else if (dealer.Pontuacao > jogador.Pontuacao)
         {
-            Console.WriteLine($"Empate? Isso não está certo... Voce tem {jogador.Pontuacao} pontos e o Dealer tem {dealer.Pontuacao} pontos  e o dealer tem {dealer.Pontuacao} pontos... Vamos resolver isso");
+            Console.WriteLine(
+                $"Dealer venceu obviamente, com {dealer.Pontuacao} pontos. " +
+                "Você perdeu, mas continue jogando até perder tudo!");
+            Vitoria = false;
+        }
+        // Jogador tem mais pontos.
+        else if (jogador.Pontuacao > dealer.Pontuacao)
+        {
+            Console.WriteLine(
+                $"Você venceu? Isso não está certo! Você tinha " +
+                $"{jogador.Pontuacao} pontos e o Dealer tinha " +
+                $"{dealer.Pontuacao} pontos... É, parece que você ganhou mesmo, " +
+                "mas que dealer incompetente. Jogue de novo, por favor :)");
+            Vitoria = true;
+        }
+        // Pontuações iguais: desempate.
+        else
+        {
+            Console.WriteLine(
+                $"Empate? Isso não está certo... Você tem " +
+                $"{jogador.Pontuacao} pontos e o Dealer tem " +
+                $"{dealer.Pontuacao} pontos. Vamos resolver isso!");
+
             Desempate();
         }
-
     }
 
     public void Desempate()
     {
-        if (dealer.CalcularValorNaipe() > jogador.CalcularValorNaipe())
+        int valorDealer = dealer.CalcularValorNaipe();
+        int valorJogador = jogador.CalcularValorNaipe();
+
+        if (valorDealer > valorJogador)
         {
-            Console.WriteLine($"Dealer venceu obviamente, com {dealer.CalcularValorNaipe()} pontos e você tinha {jogador.CalcularValorNaipe()} pontos. mas continue jogando você chegou bem perto!");
+            Console.WriteLine(
+                $"Dealer venceu obviamente, com {valorDealer} pontos " +
+                $"e você tinha {valorJogador} pontos. Mas continue jogando!");
+            Vitoria = false;
         }
-        else if (dealer.CalcularValorNaipe() < jogador.CalcularValorNaipe())
+        else if (valorJogador > valorDealer)
         {
-            Console.WriteLine($"Você venceu? Deixa eu ver isso direito, você tinha {jogador.CalcularValorNaipe()} pontos e o Dealer tinha {dealer.CalcularValorNaipe()} pontos... A incompetencia dele não tem limite. Jogue de novo, por favor :)");
+            Console.WriteLine(
+                $"Você venceu? Deixa eu ver isso direito... " +
+                $"Você tinha {valorJogador} pontos e o Dealer tinha " +
+                $"{valorDealer} pontos. Você venceu!");
+            Vitoria = true;
         }
         else
         {
-            Console.WriteLine($"Vamos ver, você tem {jogador.CalcularValorNaipe()} pontos e o Dealer tem {dealer.CalcularValorNaipe()} pontos... ");
-            Console.WriteLine($"Empate? DE NOVO? Quais são as chances? Vou ter que arrumar outro jeito, pera ai... CARA ou COROA? Digite 1 para CARA e 2 para COROA");
-            int escolha = Convert.ToInt32(Console.ReadLine());
-            while ( (escolha != 1) && (escolha != 2))
+            Console.WriteLine(
+                $"Vamos ver, você tem {valorJogador} pontos e o Dealer " +
+                $"tem {valorDealer} pontos...");
+
+            Console.WriteLine(
+                "Empate? DE NOVO? Quais são as chances? " +
+                "CARA ou COROA? Digite 1 para CARA e 2 para COROA.");
+
+            int escolha;
+
+            while (true)
             {
-                Console.WriteLine("Opção inválida. Digite 1 para CARA e 2 para COROA");
-                escolha = Convert.ToInt32(Console.ReadLine());
+                string? entrada = Console.ReadLine();
+
+                if (int.TryParse(entrada, out escolha) &&
+                    (escolha == 1 || escolha == 2))
+                {
+                    break;
+                }
+
+                Console.WriteLine(
+                    "Opção inválida. Digite 1 para CARA e 2 para COROA.");
             }
+
             Random random = new Random();
-            int resultado = random.Next(1, 11); // Gera um número aleatório entre 1 e 10
+            int resultado = random.Next(1, 11);
+
             if (escolha == resultado)
             {
-                Console.WriteLine($"Você venceu?... Bom, dessa vez não foi nem culpa do Dealer, você é muito sortudo");
+                Console.WriteLine(
+                    "Você venceu?... Bom, dessa vez não foi nem culpa " +
+                    "do Dealer, você é muito sortudo!");
+                Vitoria = true;
             }
             else
             {
-                Console.WriteLine($"Dealer venceu obviamente! Você quase venceu trapaceando, mas não foi dessa vez. Jogue de novo, por favor :)");
+                Console.WriteLine(
+                    "Dealer venceu obviamente! Você quase venceu, " +
+                    "mas não foi dessa vez. Jogue de novo, por favor :)");
+                Vitoria = false;
             }
         }
     }
+
     public int PontuacaoJogador()
     {
         return jogador.Pontuacao;
